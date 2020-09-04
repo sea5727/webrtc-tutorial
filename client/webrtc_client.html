@@ -1,0 +1,51 @@
+<html>
+    <head>
+        <title>webrtc tutorial 20200904</title>
+    </head>
+    <body>
+        <div>
+            <video id="myVideo" playsinline autoplay muted></video>
+            <video id="remoteVideo" playsinline autoplay></video>
+        </div>
+        <div>
+            <button id="startGetUserMedia">startGetUserMedia</button>
+            <button id="startWebSocketOpen">startWebSocketOpen</button>
+            <button id="startCreateRTCPeerConnection">startCreateRTCPeerConnection</button>
+            <button id="startCreateOffer">startCreateOffer</button>
+            <button id="startSendOffer">startSendOffer</button>
+        </div>
+
+        <script type="text/javascript">
+            const remoteVideo = document.getElementById('myVideo');
+            remoteVideo.addEventListener('loadedmetadata', function() {
+              console.log(`[DEBUG] remote_video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
+            })
+            remoteVideo.addEventListener('resize', () => {
+                console.log(`[DEBUG] Remote video size changed to ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
+            })
+            
+            const startGetUserMedia = document.querySelector('button#startGetUserMedia')
+            startGetUserMedia.addEventListener('click', async () => {
+                const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+                console.log('[DEBUG] call getUserMedia -> get stream ');
+                // localVideo.srcObject = stream;
+                // localStream = stream;
+            })
+
+            const startCreateRTCPeerConnection = document.querySelector('button#startCreateRTCPeerConnection')
+            startCreateRTCPeerConnection.addEventListener('click', () => {
+                const config = {
+                    'iceServers' : [
+                        { urls : 'stun:stun.l.google.com:19302' },
+                        { urls : "turn:numb.viagenie.ca", credential : "muazkh", username : "webrtc@live.com"}]
+                  }
+                pc1 = new RTCPeerConnection(config)
+                console.log('[DEBUG] call RTCPeerConnection');
+            })
+
+
+        </script>
+    </body>
+</html>
+
+  
