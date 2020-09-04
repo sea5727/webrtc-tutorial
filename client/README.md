@@ -2,7 +2,7 @@
 
 
 1.  카메라 얻기 ( getUserMedia )
-   - getUserMedia 를 사용하면 video, audio 장치와 연결하여 stream 객체를 얻을 수 있다.
+   - getUserMedia 를 사용하면 video, audio 장치와 연결하여 stream 객체를 얻을 수 있다
    - 자세한건 그때그때 doc을 참조하면 될듯싶다.
 2. WebRTC 연결 ( RTCPeerConnection )
    - RTCPeerConnection 를 사용하여 WebRTC 관련 커넥션을 정의할 수 있다.
