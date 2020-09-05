@@ -9,13 +9,17 @@
         </div>
         <div>
             <button id="startGetUserMedia">startGetUserMedia</button>
-            <button id="startWebSocketOpen">startWebSocketOpen</button>
             <button id="startCreateRTCPeerConnection">startCreateRTCPeerConnection</button>
+            <button id="startAddTrack">startAddTrack</button>
             <button id="startCreateOffer">startCreateOffer</button>
+            <button id="startSetLocalDescription">startSetLocalDescription</button>
             <button id="startSendOffer">startSendOffer</button>
         </div>
 
         <script type="text/javascript">
+            let localStream;
+            let pc;
+            let myoffer;
             const remoteVideo = document.getElementById('myVideo');
             remoteVideo.addEventListener('loadedmetadata', function() {
               console.log(`[DEBUG] remote_video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
@@ -26,22 +30,99 @@
             
             const startGetUserMedia = document.querySelector('button#startGetUserMedia')
             startGetUserMedia.addEventListener('click', async () => {
-                const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+                stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
                 console.log('[DEBUG] call getUserMedia -> get stream ');
-                // localVideo.srcObject = stream;
-                // localStream = stream;
+                myVideo.srcObject = stream;
+                localStream = stream;
             })
 
             const startCreateRTCPeerConnection = document.querySelector('button#startCreateRTCPeerConnection')
             startCreateRTCPeerConnection.addEventListener('click', () => {
                 const config = {
                     'iceServers' : [
-                        { urls : 'stun:stun.l.google.com:19302' },
-                        { urls : "turn:numb.viagenie.ca", credential : "muazkh", username : "webrtc@live.com"}]
+                        { 
+                            urls : 'stun:stun.l.google.com:19302' 
+                        }]
                   }
-                pc1 = new RTCPeerConnection(config)
-                console.log('[DEBUG] call RTCPeerConnection');
+                pc = new RTCPeerConnection(config)
+                console.log('[DEBUG] call RTCPeerConnection!')
+
+                console.log('[DEBUG] == INIT ==')
+                console.log('[DEBUG] canTrickleIceCandidates : ', pc.canTrickleIceCandidates)
+                console.log('[DEBUG] connectionState : ', pc.connectionState)
+                console.log('[DEBUG] currentLocalDescription', pc.currentLocalDescription)
+                console.log('[DEBUG] currentRemoteDescription', pc.currentRemoteDescription)
+                //console.log('[DEBUG] getDefaultIceServers()', pc.getDefaultIceServers())
+                console.log('[DEBUG] iceConnectionState', pc.iceConnectionState)
+                console.log('[DEBUG] iceGatheringState', pc.iceGatheringState )
+                console.log('[DEBUG] localDescription ', pc.localDescription  )
+                console.log('[DEBUG] peerIdentity ', pc.peerIdentity)
+                console.log('[DEBUG] pendingLocalDescription ', pc.pendingLocalDescription)
+                console.log('[DEBUG] pendingRemoteDescription  ', pc.pendingRemoteDescription )
+                console.log('[DEBUG] remoteDescription ', pc.remoteDescription)
+                console.log('[DEBUG] sctp ', pc.sctp)
+                console.log('[DEBUG] signalingState  ', pc.signalingState )
+                console.log('[DEBUG] == INIT ==')
+                
+                pc.onaddstream = (event) => {
+                    console.log('pc.onaddstream')
+                }
+                pc.onconnectionstatechange = (event) => {
+                    console.log('pc.onconnectionstatechange')
+                }
+                pc.ondatachannel = (event) => {
+                    console.log('pc.ondatachannel')
+                }
+                pc.onicecandidate = (event) => {
+                    console.log('pc.onicecandidate ', event)
+                    console.log('new-ice-candidate ', event.candidate)
+                    
+                }
+                pc.oniceconnectionstatechange = (event) => {
+                    console.log('pc.oniceconnectionstatechange')
+                }
+                pc.onicegatheringstatechange = (event) => {
+                    console.log('pc.onicegatheringstatechange' , event)
+                }
+                pc.onidentityresult = (event) => {
+                    console.log('pc.onidentityresult')
+                }
+                pc.onremovestream = (event) => {
+                    console.log('pc.onremovestream')
+                }
+                pc.onnegotiationneeded = (event) => {
+                    console.log('pc.onnegotiationneeded ', event)
+                }
+                pc.ontrack = (event) => {
+                    console.log('pc.ontrack')
+                }
             })
+            const startAddTrack = document.querySelector('button#startAddTrack')
+            startAddTrack.addEventListener('click', () => {
+                console.log('startAddTrack')
+                stream.getTracks().forEach((track) => {
+                    console.log('pc.addTrack')
+                    pc.addTrack(track, stream)
+                })
+            })
+            const startCreateOffer = document.querySelector('button#startCreateOffer')
+            startCreateOffer.addEventListener('click', () => {
+                pc.createOffer().then((offer) => {
+                    myoffer = offer
+                    return await pc.setLocalDescription(offer)
+                })
+  
+                
+                //offer = await pc.createOffer()
+                //offer_sdp = sdp
+            })
+            /* const startSetLocalDescription = document.querySelector('button#startSetLocalDescription')
+            startSetLocalDescription.addEventListener('click', () => {
+                console.log('startSetLocalDescription')
+                pc.setLocalDescription(offer_sdp).then( d => {
+                    console.log(d)
+                })
+            })*/
 
 
         </script>
