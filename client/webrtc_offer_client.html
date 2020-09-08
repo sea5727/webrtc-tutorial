@@ -9,17 +9,25 @@
         </div>
         <div>
             <button id="startGetUserMedia">startGetUserMedia</button>
+            <br/>
             <button id="startCreateRTCPeerConnection">startCreateRTCPeerConnection</button>
+            <br/>
             <button id="startAddTrack">startAddTrack</button>
-            <button id="startCreateOffer">startCreateOffer</button>
-            <button id="startSetLocalDescription">startSetLocalDescription</button>
+            <br/>
+            <button id="startCreateOfferAndSetLocalDescription">startCreateOfferAndSetLocalDescription</button>
+            <br/>
+            <input id="textIpPort" type="text" name="connection" size="100" value="ws://192.168.0.34:12345"/>
+            <br/>
+            <button id="startConnectWebSocket">startConnectWebSocket</button>
             <button id="startSendOffer">startSendOffer</button>
+            <br/>
         </div>
 
         <script type="text/javascript">
             let localStream;
             let pc;
             let myoffer;
+            let ws;
             const remoteVideo = document.getElementById('myVideo');
             remoteVideo.addEventListener('loadedmetadata', function() {
               console.log(`[DEBUG] remote_video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
@@ -30,21 +38,29 @@
             
             const startGetUserMedia = document.querySelector('button#startGetUserMedia')
             startGetUserMedia.addEventListener('click', async () => {
-                stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
-                console.log('[DEBUG] call getUserMedia -> get stream ');
-                myVideo.srcObject = stream;
-                localStream = stream;
+                navigator.mediaDevices.getUserMedia({audio: true, video: true})
+                    .then(stream => {
+                        console.log('[DEBUG] call getUserMedia -> get stream ');
+                        myVideo.srcObject = stream;
+                        localStream = stream;
+                    })
+                    .catch( error => {
+                        console.log('[DEBUG] call getUserMedia -> error stream ' , error);
+                    })
             })
 
             const startCreateRTCPeerConnection = document.querySelector('button#startCreateRTCPeerConnection')
             startCreateRTCPeerConnection.addEventListener('click', () => {
-                const config = {
-                    'iceServers' : [
-                        { 
-                            urls : 'stun:stun.l.google.com:19302' 
-                        }]
-                  }
-                pc = new RTCPeerConnection(config)
+                var STUN = {
+                    'url': 'stun:stun.l.google.com:19302',
+                }
+                
+                var iceServers = 
+                {
+                    iceServers: [STUN]
+                }
+                
+                pc = new RTCPeerConnection(iceServers)
                 console.log('[DEBUG] call RTCPeerConnection!')
 
                 console.log('[DEBUG] == INIT ==')
@@ -75,14 +91,37 @@
                 }
                 pc.onicecandidate = (event) => {
                     console.log('pc.onicecandidate ', event)
-                    console.log('new-ice-candidate ', event.candidate)
+                    
+
+                    if(event.candidate) 
+                    {
+                        console.log('new-ice-candidate ', event.candidate)
+                        //console.log('onicecandidate -> localDescription : ' , pc.localDescription.sdp)
+
+                        //newIceCandidate = new RTCIceCandidate(event.candidate);
+                        //pc.addIceCandidate(event.candidate)
+                        //.then(()=>{
+                            //console.log('addIceCandidate success ', event.candidate.candidate)  
+                        ///})
+                        //.catch(error => {
+                            //console.log('addIceCandidate error : ', error)
+                        //})
+                    }
+
                     
                 }
                 pc.oniceconnectionstatechange = (event) => {
                     console.log('pc.oniceconnectionstatechange')
                 }
                 pc.onicegatheringstatechange = (event) => {
-                    console.log('pc.onicegatheringstatechange' , event)
+                    switch(pc.iceGatheringState){
+                        case "new":
+                        case "gathering":
+                        case "complete": // -> signaling 필요.
+                        default:
+                            console.log('pc.iceGatheringState : state', pc.iceGatheringState)
+                            break;
+                    }
                 }
                 pc.onidentityresult = (event) => {
                     console.log('pc.onidentityresult')
@@ -100,29 +139,60 @@
             const startAddTrack = document.querySelector('button#startAddTrack')
             startAddTrack.addEventListener('click', () => {
                 console.log('startAddTrack')
-                stream.getTracks().forEach((track) => {
+                localStream.getTracks().forEach((track) => {
                     console.log('pc.addTrack')
-                    pc.addTrack(track, stream)
+                    pc.addTrack(track, localStream)
                 })
             })
-            const startCreateOffer = document.querySelector('button#startCreateOffer')
-            startCreateOffer.addEventListener('click', () => {
+            const startCreateOfferAndSetLocalDescription = document.querySelector('button#startCreateOfferAndSetLocalDescription')
+            startCreateOfferAndSetLocalDescription.addEventListener('click', () => {
                 pc.createOffer().then((offer) => {
+                    console.log('offer : ', offer)
                     myoffer = offer
-                    return await pc.setLocalDescription(offer)
+                    //console.log('== original offer sdp : ')
+                    //console.log(offer.sdp)
+                    
+                    pc.setLocalDescription(offer)
+                        .then( () => {
+                            //console.log('startCreateOfferAndSetLocalDescription -> localDescription : ' , pc.localDescription.sdp)
+                            console.log('startCreateOfferAndSetLocalDescription -> test : ' , test)
+                        })
+                        .catch(err => {
+                            console.log('err : ', err)
+                        })
+                    
                 })
   
                 
                 //offer = await pc.createOffer()
                 //offer_sdp = sdp
             })
-            /* const startSetLocalDescription = document.querySelector('button#startSetLocalDescription')
-            startSetLocalDescription.addEventListener('click', () => {
-                console.log('startSetLocalDescription')
-                pc.setLocalDescription(offer_sdp).then( d => {
-                    console.log(d)
-                })
-            })*/
+            
+            
+            
+            const startConnectWebSocket = document.querySelector('button#startConnectWebSocket')
+            startConnectWebSocket.addEventListener('click', () => {
+                console.log('startConnectWebSocket -> localDescription : ' , pc.localDescription.sdp)
+
+                textIpPort = document.getElementById('textIpPort')
+                console.log(textIpPort.value)
+                ws = new WebSocket(textIpPort.value)
+                ws.onopen = (event) => {
+                    console.log(`[DEBUG] ${textIpPort.value} connected`)
+                }
+                ws.onmessage = async (event) => {
+                    console.log(`[DEBUG] ${textIpPort.value} on message`)
+                    console.log('Received data : ')
+                    console.log(event.data)
+                }
+
+            })
+            const startSendOffer = document.querySelector('button#startSendOffer')
+            startSendOffer.addEventListener('click', () => {
+                ws.sendJs
+                ws.send(JSON.stringify(pc.localDescription))
+            })
+
 
 
         </script>
