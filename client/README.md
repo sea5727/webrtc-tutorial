@@ -1,3 +1,10 @@
+# WebRTC
+
+python3 ./simple-https-server 을 실행.
+
+
+
+
 # webrtc-tutorial peer 단말
 
 전체 순서는

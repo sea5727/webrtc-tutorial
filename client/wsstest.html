@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>WebSocket demo</title>
+    </head>
+    <body>
+        <div>
+            <button id="startButton">Start</button>
+            <button id="startButton2">Start2</button>
+        </div>
+        <script>
+            const startButton = document.getElementById('startButton');
+            const startButton2 = document.getElementById('startButton2');
+            startButton.addEventListener('click', startAction);
+            startButton2.addEventListener('click', startAction2);
+
+            function startAction(){
+                var ws = new WebSocket("wss://sanghotest.iptime.org:9002"),
+                messages = document.createElement('ul');
+                ws.onmessage = function (event) {
+                    var messages = document.getElementsByTagName('ul')[0],
+                        message = document.createElement('li'),
+                        content = document.createTextNode(event.data);
+                    message.appendChild(content);
+                    messages.appendChild(message);
+                };
+                document.body.appendChild(messages);
+            }
+
+            function startAction2(){
+                var ws = new WebSocket("wss://192.168.0.34:9002"),
+                messages = document.createElement('ul');
+                ws.onmessage = function (event) {
+                    var messages = document.getElementsByTagName('ul')[0],
+                        message = document.createElement('li'),
+                        content = document.createTextNode(event.data);
+                    message.appendChild(content);
+                    messages.appendChild(message);
+                };
+                document.body.appendChild(messages);
+            }
+
+        </script>
+    </body>
+</html>

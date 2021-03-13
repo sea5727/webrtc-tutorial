@@ -1,0 +1,327 @@
+<html>
+    <head>
+        <title>webrtc tutorial 20200904</title>
+    </head>
+    <body>
+        <div>
+            <video id="localVideo" playsinline autoplay muted></video>
+            <video id="remoteVideo" playsinline autoplay></video>
+        </div>
+        <div>
+            <button id="startGetUserMedia">startGetUserMedia</button>
+            <button id="startCreateRTCPeerConnection">startCreateRTCPeerConnection</button>
+            <button id="startCreateOffer">startCreateOffer</button>
+            <button id="startSendOffer">startSendOffer</button>
+            <button id="startWebSocketOpen">startWebSocketOpen</button>
+        </div>
+
+        <script type="text/javascript">
+            let localStream
+            let pc1
+            let pc2
+            let offer
+            let answer
+            const localVideo = document.getElementById('localVideo');
+            const remoteVideo = document.getElementById('remoteVideo');
+
+            localVideo.addEventListener('loadedmetadata', function() {
+                console.log(`[DEBUG] addEventListener loadedmetadata videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
+            });
+
+            remoteVideo.addEventListener('loadedmetadata', function() {
+              console.log(`[DEBUG] remote_video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
+            })
+            remoteVideo.addEventListener('resize', () => {
+                console.log(`[DEBUG] Remote video size changed to ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
+            })
+            
+            const startGetUserMedia = document.querySelector('button#startGetUserMedia')
+            startGetUserMedia.addEventListener('click', async () => {
+                try{
+                    console.log('[DEBUG] call getUserMedia -> get stream ');
+                    const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+                    localVideo.srcObject = stream;
+                    localStream = stream;
+                } catch(err){
+                    console.log(`err:${err}`)
+                }
+            })
+
+
+
+
+            async function onIceCandidate(pc, event) {
+                console.log('[DEBUG] onIceCandidate ')
+                try {
+                    await (getOtherPc(pc).addIceCandidate(event.candidate));
+                    onAddIceCandidateSuccess(pc);
+                } catch (e) {
+                    onAddIceCandidateError(pc, e);
+                }
+            }
+
+            function onIceStateChange(pc, event) {
+                if (pc) {
+                    console.log(`${getName(pc)} ICE state: ${pc.iceConnectionState}`);
+                    console.log('ICE state change event: ', event);
+                }
+            }
+
+            function gotRemoteStream(e) {
+                console.log('[DEBUG] gotRemoteStream')
+                if (remoteVideo.srcObject !== e.streams[0]) {
+                    remoteVideo.srcObject = e.streams[0];
+                    console.log('pc2 received remote stream');
+                }
+            }
+
+
+            function getSelectedSdpSemantics() {
+                return {}
+                //const sdpSemanticsSelect = document.querySelector('#sdpSemantics');
+                //const option = sdpSemanticsSelect.options[sdpSemanticsSelect.selectedIndex];
+                //return option.value === '' ? {} : {sdpSemantics: option.value};
+            }
+            
+
+            const startCreateRTCPeerConnection = document.querySelector('button#startCreateRTCPeerConnection')
+            startCreateRTCPeerConnection.addEventListener('click', async () => {
+                //let cert = await RTCPeerConnection.generateCertificate("ECDSA")
+                //console.log('cert:', cert)
+                const config = {
+                    'iceServers' : [ { 
+                            urls : 'stun:18.191.223.12:3478' 
+                        }]
+                  }
+
+                const videoTracks = localStream.getVideoTracks();
+                const audioTracks = localStream.getAudioTracks();
+                if (videoTracks.length > 0) {
+                    console.log(`Using video device: ${videoTracks[0].label}`);
+                }
+                if (audioTracks.length > 0) {
+                    console.log(`Using audio device: ${audioTracks[0].label}`);
+                }
+                const configuration = getSelectedSdpSemantics();
+                pc1 = new RTCPeerConnection(config)
+                pc2 = new RTCPeerConnection(null);
+
+                pc1.addEventListener('icecandidate', async (event) => {
+                    try {
+                        console.log(event)
+                        console.log('pc1.addEventListener newIceCandidate:' , event.candidate)
+
+                        //await pc2.addIceCandidate(event.candidate);
+                        //console.log(`pc1 addIceCandidate success`);
+                    } catch (e) {
+                        console.log(`pc1 failed to add ICE Candidate: ${e.toString()}`);
+                    }
+                });
+                pc1.addEventListener('iceconnectionstatechange', (event) => {
+                    console.log(`pc1 ICE state: ${pc1.iceConnectionState}`);
+                    console.log('ICE state change event: ', event);
+                });
+
+                pc2.addEventListener('icecandidate', async (event) => {
+                    try {
+                        console.log('pc2.addEventListener newIceCandidate:' , event.candidate)
+                        //await pc1.addIceCandidate(event.candidate);
+                        //console.log(`pc2 addIceCandidate success`);
+                    } catch (e) {
+                        console.log(`pc2 failed to add ICE Candidate: ${e.toString()}`);
+                    }
+                });
+                pc2.addEventListener('iceconnectionstatechange', (event) => {
+                    console.log(`pc2 ICE state: ${pc2.iceConnectionState}`);
+                    console.log('ICE state change event: ', event);
+                })
+                pc2.addEventListener('addstream', () => {
+                    console.log('pc2 addstream')
+                });
+                pc2.addEventListener('track', gotRemoteStream);
+
+                localStream.getTracks().forEach(track => pc1.addTrack(track, localStream));
+
+
+                pc1.onaddstream = (event) => {
+                    console.log('onaddstream')
+
+                    if (remoteVideo.srcObject !== event.streams) {
+                    remoteVideo.srcObject = event.streams;
+                    // localStream.getTracks().forEach(track => pc1.addTrack(track, localStream));
+                    // remoteVideo.srcObject = localStream;
+                    console.log('pc2 received remote stream');
+                    }
+
+                    // remoteVideo.stream = event.stream;
+                    // remoteStream = event.stream;
+                    // waitForRemoteVideo();
+                }
+                pc1.onremovestream = (event) => {
+                    console.log('onremovestream')
+
+                }
+                pc1.onconnecting = (event) => {
+                    console.log('onconnecting')
+                }
+                pc1.onopen  = (event) => {
+                    console.log('onopen ')
+                }
+                pc1.ontrack = (event) => {
+                    console.log('ontrack')
+                }                
+            })
+
+            const startCreateOffer = document.querySelector('button#startCreateOffer')
+            startCreateOffer.addEventListener('click', async () => {
+                try {
+                    console.log('pc1 createOffer start');
+                    const offerOptions = {
+                        offerToReceiveAudio: 1,
+                        offerToReceiveVideo: 1
+                    };
+                    offer = await pc1.createOffer();
+                    console.log(`success pc1.createOffer\n`);
+                    //console.log(`${offer.sdp}`)
+                    let ret = await pc1.setLocalDescription(offer);
+                    console.log(`success pc1.setLocalDescription\n`);
+
+                    //await pc2.setRemoteDescription(offer);
+                    //console.log(`success pc2.setRemoteDescription\n`);
+                    //answer = await pc2.createAnswer();
+                    //console.log(`success pc2.createAnswer\n`);//${answer.sdp}
+                    //await pc2.setLocalDescription(answer);
+                    //console.log(`success pc2.setLocalDescription\n`);//${answer.sdp}
+
+                    //console.log('pc2.localDescription.sdp: ' , pc2.localDescription.sdp)
+                    //await pc1.setRemoteDescription(answer);
+                    //console.log(`success pc2.setRemoteDescription\n`);//${answer.sdp}
+
+                } catch (e) {
+                    console.log(`Failed to create session description: ${e.toString()}`);
+                }
+            })
+
+            const startWebSocketOpen = document.querySelector('button#startWebSocketOpen')
+            startWebSocketOpen.addEventListener('click', async () => {
+                console.log('click websocket start')
+                ws = new WebSocket("wss://sanghotest.iptime.org:9002");
+                ws.onopen = (event) => {
+                    
+                    console.log('on Open!!')
+                    ws.send('HELLO ASDF')
+                    /*console.log(`${pc1.localDescription.sdp}`)
+                    request = {
+                        command : 'offer',
+                        sdp : pc1.localDescription.sdp
+                    }
+                    ws.send(JSON.stringify(request))*/
+                }
+
+                let first_flag = false
+
+                ws.onmessage = async (event) => {
+                    console.log('on message!! ', typeof(event.data), event.data)
+        
+                    if(typeof event.data == 'string' ){
+                        if(event.data == 'HELLO'){
+                            ws.send('SESSION asdf')
+                        } else if(event.data == 'SESSION_OK'){
+                            console.log(`${pc1.localDescription.sdp}`)
+                            request = {
+                                sdp : {
+                                    type : 'offer',
+                                    sdp : pc1.localDescription.sdp
+                                }
+                            }
+                            ws.send(JSON.stringify(request))
+
+                            /*await pc2.setRemoteDescription(
+                                new RTCSessionDescription({ type : 'answer', sdp : response_object.sdp}))*/
+                        } else {
+                            let res = JSON.parse(event.data)
+                            if(res['sdp']){
+                                let answer = res['sdp']['sdp']
+                                let type = res['sdp']['type']
+                                console.log('type:', type)
+                                if(type == 'answer'){
+
+                                } 
+                            } else if(res['ice']){
+                                if(first_flag == false){
+                                    first_flag = true
+                                    
+                                    try{
+                                        let ice = JSON.parse(`{"candidate":"candidate:4285824471 1 udp 2122260223 192.168.0.12 58288 typ host generation 0 ufrag SGfk network-id 1 network-cost 10","sdpMid":"0","sdpMLineIndex":0}`)
+                                        RTCicecandidate = new RTCIceCandidate(ice)
+                                        console.log('flag start addIceCandidate', RTCicecandidate)
+                                        await pc2.addIceCandidate(RTCicecandidate);
+                                        console.log('flag  pc2.addIceCandidate')
+                                    } catch(e) {
+                                        console.error(e)
+                                    }
+                                }
+
+                                try{
+                                    let candidate = res['ice']
+                                    console.log(`ice: ${JSON.stringify(candidate)}`);
+                                    RTCicecandidate = new RTCIceCandidate(candidate)
+                                    console.log('start addIceCandidate', RTCicecandidate)
+                                    await pc2.addIceCandidate(RTCicecandidate);
+                                    console.log('pc2.addIceCandidate')
+                                } catch(e){
+                                    console.error(e)
+                                }
+                                
+                                //console.log(`pc2 addIceCandidate`);
+                            }
+                        }
+                        
+                        
+
+                        /*console.log(`Received data : ${event.data}`)
+                        let response_object = JSON.parse(event.data)
+                        if(response_object.command == "answer") {
+                            try {
+                                console.log('answer sdp : ' , response_object.sdp)
+                                
+                                await pc1.setRemoteDescription(
+                                    new RTCSessionDescription({ type : 'answer', sdp : response_object.sdp}))
+            
+                                console.log('pc1.setRemoteDescription success')
+                            }
+                            catch(e)
+                            {
+                                alert("set local description error : " + e);
+                            }
+                        }*/
+                    }
+                }
+            })
+
+            async function onCreateOfferSuccess(desc) {
+                console.log(`onCreateOfferSuccess\n`);
+                //console.log(`onCreateOfferSuccess\n${desc.sdp}`);
+                try {
+                    await pc1.setLocalDescription(desc);
+                    console.log(`pc1 setLocalDescription complete`);
+                } catch (e) {
+                    console.log(`Failed to set session description: ${e.toString()}`);
+                }
+
+                try {
+                    await pc1.setRemoteDescription(desc);
+                    console.log(`pc1 setRemoteDescription complete`);
+                } catch (e) {
+                    console.log(`Failed to set session description: ${e.toString()}`);
+                }
+
+            }
+
+
+
+        </script>
+    </body>
+</html>
+
+  
