@@ -30,13 +30,11 @@
             // In this codelab, you will be streaming video only: "video: true".
             // Audio will not be streamed because it is set to "audio: false" by default.
             const mediaStreamConstraints = {
-              audio: true,
               video: true,
             };
             
             // Set up to exchange only video.
             const offerOptions = {
-              offerToReceiveAudio: 1,
               offerToReceiveVideo: 1,
             };
             
@@ -44,13 +42,10 @@
             let startTime = null;
             
             // Define peer connections, streams and video elements.
-            const localVideo = document.getElementById('localVideo');
             const remoteVideo = document.getElementById('remoteVideo');
             
-            let localStream;
             let remoteStream;
             
-            let localPeerConnection;
             let remotePeerConnection;
             
             
@@ -99,7 +94,6 @@
               }
             }
             
-            localVideo.addEventListener('loadedmetadata', logVideoLoaded);
             remoteVideo.addEventListener('loadedmetadata', logVideoLoaded);
             remoteVideo.addEventListener('onresize', logResizedVideo);
             
@@ -107,52 +101,14 @@
             // Define RTC peer connection behavior.
             
             // Connects with new peer candidate.
-            function localhandleConnection(event) {
+            function handleConnection(event) {
               const peerConnection = event.target;
               const iceCandidate = event.candidate;
             
               if (iceCandidate) {
                 let str = JSON.stringify(iceCandidate)
-                console.log('local newIceCandidate:', str)
+                console.log('newIceCandidate:', str)
                 const newIceCandidate = new RTCIceCandidate(iceCandidate);
-                
-                // console.log('newIceCandidate:', newIceCandidate)
-
-                const otherPeer = getOtherPeer(peerConnection);
-            
-                otherPeer.addIceCandidate(newIceCandidate)
-                  .then(() => {
-                    handleConnectionSuccess(peerConnection);
-                  }).catch((error) => {
-                    handleConnectionFailure(peerConnection, error);
-                  });
-            
-                trace(`${getPeerName(peerConnection)} ICE candidate:\n` +
-                      `${event.candidate.candidate}.`);
-              }
-            }
-            function remotehandleConnection(event) {
-              const peerConnection = event.target;
-              const iceCandidate = event.candidate;
-            
-              if (iceCandidate) {
-                let str = JSON.stringify(iceCandidate)
-                console.log('remote newIceCandidate:', str)
-                const newIceCandidate = new RTCIceCandidate(iceCandidate);
-                
-                // console.log('newIceCandidate:', newIceCandidate)
-
-                const otherPeer = getOtherPeer(peerConnection);
-            
-                otherPeer.addIceCandidate(newIceCandidate)
-                  .then(() => {
-                    handleConnectionSuccess(peerConnection);
-                  }).catch((error) => {
-                    handleConnectionFailure(peerConnection, error);
-                  });
-            
-                trace(`${getPeerName(peerConnection)} ICE candidate:\n` +
-                      `${event.candidate.candidate}.`);
               }
             }
             
@@ -198,7 +154,7 @@
             
             // Logs offer creation and sets peer connection session descriptions.
             function createdOffer(description) {
-              trace(`Offer from localPeerConnection:\n${description.sdp}`);
+              // trace(`Offer from localPeerConnection:\n${description.sdp}`);
             
               trace('localPeerConnection setLocalDescription start.');
               localPeerConnection.setLocalDescription(description)
@@ -225,13 +181,7 @@
               trace('remotePeerConnection setLocalDescription start.');
               remotePeerConnection.setLocalDescription(description)
                 .then(() => {
-                  setLocalDescriptionSuccess(remotePeerConnection);
-                }).catch(setSessionDescriptionError);
-            
-              trace('localPeerConnection setRemoteDescription start.');
-              localPeerConnection.setRemoteDescription(description)
-                .then(() => {
-                  setRemoteDescriptionSuccess(localPeerConnection);
+                  console.log('remotePeerConnection setLocalDescription Success')
                 }).catch(setSessionDescriptionError);
             }
             
@@ -251,9 +201,10 @@
             // Handles start button action: creates local MediaStream.
             function startAction() {
               startButton.disabled = true;
-              navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
-                .then(gotLocalMediaStream).catch(handleLocalMediaStreamError);
-              trace('Requesting local stream.');
+              callButton.disabled = false
+              // navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
+              //   .then(gotLocalMediaStream).catch(handleLocalMediaStreamError);
+              // trace('Requesting local stream.');
             }
             
             // Handles call button action: creates peer connection.
@@ -262,50 +213,43 @@
               hangupButton.disabled = false;
             
               trace('Starting call.');
-              startTime = window.performance.now();
-            
-              // Get local media stream tracks.
-              const videoTracks = localStream.getVideoTracks();
-              const audioTracks = localStream.getAudioTracks();
-              if (videoTracks.length > 0) {
-                trace(`Using video device: ${videoTracks[0].label}.`);
-              }
-              if (audioTracks.length > 0) {
-                trace(`Using audio device: ${audioTracks[0].label}.`);
-              }
-            
-              const servers = null;  // Allows for RTC server configuration.
 
+              const servers = null;  // Allows for RTC server configuration.
               const config = {
                     'iceServers' : [ { 
                             urls : 'stun:18.191.223.12:3478' 
                         }]
                   }
-            
-              // Create peer connections and add behavior.
-              localPeerConnection = new RTCPeerConnection(config);
-              trace('Created local peer connection object localPeerConnection.');
-            
-              localPeerConnection.addEventListener('icecandidate', localhandleConnection);
-              localPeerConnection.addEventListener(
-                'iceconnectionstatechange', handleConnectionChange);
-            
               remotePeerConnection = new RTCPeerConnection(config);
               trace('Created remote peer connection object remotePeerConnection.');
             
-              remotePeerConnection.addEventListener('icecandidate', remotehandleConnection);
+              remotePeerConnection.addEventListener('icecandidate', handleConnection);
               remotePeerConnection.addEventListener(
                 'iceconnectionstatechange', handleConnectionChange);
               remotePeerConnection.addEventListener('addstream', gotRemoteMediaStream);
+
+
+              trace('remotePeerConnection setRemoteDescription start.');
+              remotePeerConnection.setRemoteDescription({ type : 'offer', sdp : `v=0\no=- 5214232684578473409 2 IN IP4 127.0.0.1\ns=-\nt=0 0\na=group:BUNDLE 0\na=extmap-allow-mixed\na=msid-semantic: WMS jcOgNpydCIOY7eVJy1dVk4GC3ENJcKb0twha\nm=video 9 UDP/TLS/RTP/SAVPF 96 97 98 99 100 101 102 121 127 120 125 107 108 109 124 119 123 118 114 115 116\nc=IN IP4 0.0.0.0\na=rtcp:9 IN IP4 0.0.0.0\na=ice-ufrag:cias\na=ice-pwd:0wqqvUpgEJ7zQIzyKBoUPGIU\na=ice-options:trickle\na=fingerprint:sha-256 F8:82:BD:E8:EC:65:2B:A2:C6:E2:AF:85:77:B1:42:25:4D:E4:EE:E6:5B:8D:B0:20:16:B8:B2:C5:A8:A3:0F:F3\na=setup:actpass\na=mid:0\na=extmap:1 urn:ietf:params:rtp-hdrext:toffset\na=extmap:2 http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time\na=extmap:3 urn:3gpp:video-orientation\na=extmap:4 http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01\na=extmap:5 http://www.webrtc.org/experiments/rtp-hdrext/playout-delay\na=extmap:6 http://www.webrtc.org/experiments/rtp-hdrext/video-content-type\na=extmap:7 http://www.webrtc.org/experiments/rtp-hdrext/video-timing\na=extmap:8 http://www.webrtc.org/experiments/rtp-hdrext/color-space\na=extmap:9 urn:ietf:params:rtp-hdrext:sdes:mid\na=extmap:10 urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id\na=extmap:11 urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id\na=sendrecv\na=msid:jcOgNpydCIOY7eVJy1dVk4GC3ENJcKb0twha ab800194-52e3-454f-aaaf-250f555afa25\na=rtcp-mux\na=rtcp-rsize\na=rtpmap:96 VP8/90000\na=rtcp-fb:96 goog-remb\na=rtcp-fb:96 transport-cc\na=rtcp-fb:96 ccm fir\na=rtcp-fb:96 nack\na=rtcp-fb:96 nack pli\na=rtpmap:97 rtx/90000\na=fmtp:97 apt=96\na=rtpmap:98 VP9/90000\na=rtcp-fb:98 goog-remb\na=rtcp-fb:98 transport-cc\na=rtcp-fb:98 ccm fir\na=rtcp-fb:98 nack\na=rtcp-fb:98 nack pli\na=fmtp:98 profile-id=0\na=rtpmap:99 rtx/90000\na=fmtp:99 apt=98\na=rtpmap:100 VP9/90000\na=rtcp-fb:100 goog-remb\na=rtcp-fb:100 transport-cc\na=rtcp-fb:100 ccm fir\na=rtcp-fb:100 nack\na=rtcp-fb:100 nack pli\na=fmtp:100 profile-id=2\na=rtpmap:101 rtx/90000\na=fmtp:101 apt=100\na=rtpmap:102 H264/90000\na=rtcp-fb:102 goog-remb\na=rtcp-fb:102 transport-cc\na=rtcp-fb:102 ccm fir\na=rtcp-fb:102 nack\na=rtcp-fb:102 nack pli\na=fmtp:102 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f\na=rtpmap:121 rtx/90000\na=fmtp:121 apt=102\na=rtpmap:127 H264/90000\na=rtcp-fb:127 goog-remb\na=rtcp-fb:127 transport-cc\na=rtcp-fb:127 ccm fir\na=rtcp-fb:127 nack\na=rtcp-fb:127 nack pli\na=fmtp:127 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42001f\na=rtpmap:120 rtx/90000\na=fmtp:120 apt=127\na=rtpmap:125 H264/90000\na=rtcp-fb:125 goog-remb\na=rtcp-fb:125 transport-cc\na=rtcp-fb:125 ccm fir\na=rtcp-fb:125 nack\na=rtcp-fb:125 nack pli\na=fmtp:125 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f\na=rtpmap:107 rtx/90000\na=fmtp:107 apt=125\na=rtpmap:108 H264/90000\na=rtcp-fb:108 goog-remb\na=rtcp-fb:108 transport-cc\na=rtcp-fb:108 ccm fir\na=rtcp-fb:108 nack\na=rtcp-fb:108 nack pli\na=fmtp:108 level-asymmetry-allowed=1;packetization-mode=0;profile-level-id=42e01f\na=rtpmap:109 rtx/90000\na=fmtp:109 apt=108\na=rtpmap:124 H264/90000\na=rtcp-fb:124 goog-remb\na=rtcp-fb:124 transport-cc\na=rtcp-fb:124 ccm fir\na=rtcp-fb:124 nack\na=rtcp-fb:124 nack pli\na=fmtp:124 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=4d001f\na=rtpmap:119 rtx/90000\na=fmtp:119 apt=124\na=rtpmap:123 H264/90000\na=rtcp-fb:123 goog-remb\na=rtcp-fb:123 transport-cc\na=rtcp-fb:123 ccm fir\na=rtcp-fb:123 nack\na=rtcp-fb:123 nack pli\na=fmtp:123 level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=64001f\na=rtpmap:118 rtx/90000\na=fmtp:118 apt=123\na=rtpmap:114 red/90000\na=rtpmap:115 rtx/90000\na=fmtp:115 apt=114\na=rtpmap:116 ulpfec/90000\na=ssrc-group:FID 3686610395 1976316381\na=ssrc:3686610395 cname:mqM7AQmo7q2Ewr4X\na=ssrc:3686610395 msid:jcOgNpydCIOY7eVJy1dVk4GC3ENJcKb0twha ab800194-52e3-454f-aaaf-250f555afa25\na=ssrc:3686610395 mslabel:jcOgNpydCIOY7eVJy1dVk4GC3ENJcKb0twha\na=ssrc:3686610395 label:ab800194-52e3-454f-aaaf-250f555afa25\na=ssrc:1976316381 cname:mqM7AQmo7q2Ewr4X\na=ssrc:1976316381 msid:jcOgNpydCIOY7eVJy1dVk4GC3ENJcKb0twha ab800194-52e3-454f-aaaf-250f555afa25\na=ssrc:1976316381 mslabel:jcOgNpydCIOY7eVJy1dVk4GC3ENJcKb0twha\na=ssrc:1976316381 label:ab800194-52e3-454f-aaaf-250f555afa25\n`})
+                .then(() => {
+                  console.log('remotePeerConnection setRemoteDescription success')
+                  try{
+                    localPeerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(`{"candidate":"candidate:4285824471 1 udp 2122260223 192.168.0.12 61761 typ host generation 0 ufrag +eK6 network-id 1 network-cost 10","sdpMid":"0","sdpMLineIndex":0}`)))
+                    localPeerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(`{"candidate":"candidate:2985787687 1 tcp 1518280447 192.168.0.12 9 typ host tcptype active generation 0 ufrag +eK6 network-id 1 network-cost 10","sdpMid":"0","sdpMLineIndex":0}`)))
+                    localPeerConnection.addIceCandidate(new RTCIceCandidate(JSON.parse(`{"candidate":"candidate:157549571 1 udp 1686052607 121.88.86.13 61761 typ srflx raddr 192.168.0.12 rport 61761 generation 0 ufrag +eK6 network-id 1 network-cost 10","sdpMid":"0","sdpMLineIndex":0}`)))                    
+                  }catch(e){
+                    console.log(e)
+                  }
+
+                }).catch(setSessionDescriptionError);
+              
+              trace('remotePeerConnection createAnswer start.');
+              remotePeerConnection.createAnswer()
+                .then(createdAnswer)
+                .catch(setSessionDescriptionError);
             
-              // Add local stream to connection and create offer to connect.
-              localPeerConnection.addStream(localStream);
-              trace('Added local stream to localPeerConnection.');
-            
-              trace('localPeerConnection createOffer start.');
-              localPeerConnection.createOffer()
-                .then(createdOffer).catch(setSessionDescriptionError);
             }
+
             
             // Handles hangup action: ends up call, closes connections and resets peers.
             function hangupAction() {

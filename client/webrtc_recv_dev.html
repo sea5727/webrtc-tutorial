@@ -1,0 +1,190 @@
+<html>
+    <head>
+        <title>webrtc tutorial 20200904</title>
+    </head>
+    <body>
+        <div>
+            <video id="localVideo" playsinline autoplay muted></video>
+            <video id="remoteVideo" playsinline autoplay></video>
+        </div>
+        <div>
+            <button id="startGetUserMedia">startGetUserMedia</button>
+            <button id="startCreateRTCPeerConnection">startCreateRTCPeerConnection</button>
+            <button id="startWebSocketOpen">startWebSocketOpen</button>
+            <button id="startCreateOffer">startCreateOffer</button>
+            <button id="startSendOffer">startSendOffer</button>
+            
+        </div>
+
+        <script type="text/javascript">
+            let localStream
+            let pc1
+            let offer
+            let answer
+            let ws
+            const remoteVideo = document.getElementById('remoteVideo');
+
+            remoteVideo.addEventListener('loadedmetadata', function() {
+              console.log(`[DEBUG] remote_video videoWidth: ${this.videoWidth}px,  videoHeight: ${this.videoHeight}px`);
+            })
+            remoteVideo.addEventListener('resize', () => {
+                console.log(`[DEBUG] Remote video size changed to ${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
+            })
+            
+            const startGetUserMedia = document.querySelector('button#startGetUserMedia')
+            startGetUserMedia.addEventListener('click', async () => {
+                try{
+                    // console.log('[DEBUG] call getUserMedia -> get stream ');
+                    // const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+                    // localVideo.srcObject = stream;
+                    // localStream = stream;
+                } catch(err){
+                    console.log(`err:${err}`)
+                }
+            })
+
+            const startCreateRTCPeerConnection = document.querySelector('button#startCreateRTCPeerConnection')
+            startCreateRTCPeerConnection.addEventListener('click', async () => {
+                const config = {
+                    'iceServers' : [ { 
+                            urls : 'stun:18.191.223.12:3478' 
+                        }]
+                  }
+
+                pc1 = new RTCPeerConnection(config)
+
+                pc1.addEventListener('icecandidate', async (event) => {
+                    try {
+                        // console.log(event)
+                        // console.log('pc1.addEventListener newIceCandidate:' , event.candidate)
+                        if(event.candidate){
+                            console.log('pc1 send ice')
+                            ws.send(JSON.stringify({'ice' :  {
+                                'candidate' : event.candidate.candidate,
+                                'sdpMLineIndex' : event.candidate.sdpMLineIndex,
+                            }}))
+                        }
+                    } catch (e) {
+                        console.log(`pc1 failed to add ICE Candidate: ${e.toString()}`);
+                    }
+                });
+                
+
+                pc1.addEventListener('iceconnectionstatechange', (event) => {
+                    console.log(`[TESTDEBUG]pc1 ICE state: ${pc1.iceConnectionState}`);
+                    console.log('[TESTDEBUG]ICE state change event: ', event);
+                });
+
+                pc1.onaddstream = (event) => {
+                    console.log('[TESTDEBUG]onaddstream')
+                }
+                pc1.onremovestream = (event) => {
+                    console.log('[TESTDEBUG]onremovestream')
+                }
+                pc1.onconnecting = (event) => {
+                    console.log('[TESTDEBUG]onconnecting')
+                }
+                pc1.onopen  = (event) => {
+                    console.log('[TESTDEBUG]onopen ')
+                }
+                pc1.ontrack = (event) => {
+                    console.log('[TESTDEBUG]ontrack')
+                }
+            })
+
+            const startCreateOffer = document.querySelector('button#startCreateOffer')
+            startCreateOffer.addEventListener('click', async () => {
+                try {
+
+                    console.log('pc1 createOffer start');
+                    const offerOptions = {
+                        offerToReceiveAudio: 1,
+                        offerToReceiveVideo: 1
+                    };
+                    offer = await pc1.createOffer(offerOptions);
+                    let ret = await pc1.setLocalDescription(offer);
+                    request = {
+                        sdp : {
+                            type : 'offer',
+                            sdp : pc1.localDescription.sdp
+                        }
+                    }
+                    console.log('[SEND -> Offer ... setLocalDescription', pc1.localDescription.sdp)
+                    ws.send(JSON.stringify(request))
+
+                } catch (e) {
+                    console.error(`Failed to create session description: ${e.toString()}`);
+                }
+            })
+
+            const startWebSocketOpen = document.querySelector('button#startWebSocketOpen')
+            startWebSocketOpen.addEventListener('click', async () => {
+                console.log('click websocket start')
+                ws = new WebSocket("wss://sanghotest.iptime.org:9002");
+                ws.onopen = (event) => {
+                    ws.send('HELLO ASDF')
+                }
+
+                let first_flag = false
+
+                ws.onmessage = async (event) => {
+                    // console.log('on message!! ', typeof(event.data), event.data)
+        
+                    if(typeof event.data == 'string' ){
+                        if(event.data == 'HELLO'){
+                            ws.send('SESSION asdf')
+                        } else if(event.data == 'SESSION_OK'){
+
+                        } else {
+                            let res = JSON.parse(event.data)
+                            if(res['sdp']){
+                                let answer = res['sdp']['sdp']
+                                let type = res['sdp']['type']
+                                if(type == 'answer'){
+                                    // console.log('recv answer:', answer)
+                                    console.log('[RECV] <- Answer ... setRemoteDescription')
+                                    await pc1.setRemoteDescription( new RTCSessionDescription({ type : 'answer', sdp : answer}))
+                                } 
+                            } else if(res['ice']){
+                                try{
+                                    let candidate = res['ice']
+                                    // console.log('[RECV] <- ice:' , JSON.stringify(candidate))
+                                    console.log('[RECV] <- ice:')
+                                    await pc1.addIceCandidate(new RTCIceCandidate(candidate));
+                                    
+                                } catch(e){
+                                    console.error(e)
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+            })
+
+            async function onCreateOfferSuccess(desc) {
+                console.log(`onCreateOfferSuccess\n`);
+                //console.log(`onCreateOfferSuccess\n${desc.sdp}`);
+                try {
+                    await pc1.setLocalDescription(desc);
+                    console.log(`pc1 setLocalDescription complete`);
+                } catch (e) {
+                    console.log(`Failed to set session description: ${e.toString()}`);
+                }
+
+                try {
+                    await pc1.setRemoteDescription(desc);
+                    console.log(`pc1 setRemoteDescription complete`);
+                } catch (e) {
+                    console.log(`Failed to set session description: ${e.toString()}`);
+                }
+
+            }
+
+
+
+        </script>
+    </body>
+</html>
+
+  

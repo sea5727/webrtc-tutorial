@@ -34,8 +34,15 @@ class WebRTCClient:
         self.peer_id = peer_id
         # self.server = server or 'wss://webrtc.nirbheek.in:8443'
         self.server = server or 'wss://192.168.0.34:9002'
-
         self.start_pipeline()
+
+    async def connect(self):
+        sslctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+        self.conn = await websockets.connect(self.server, ssl=sslctx)
+        await self.conn.send('HELLO %d' % self.id_)
+
+    async def setup_call(self):
+        await self.conn.send('SESSION {}'.format(self.peer_id))
 
     def send_sdp_offer(self, offer):
         text = offer.sdp.as_text()
@@ -184,7 +191,6 @@ if __name__=='__main__':
     s = WebRTCClient(args.peerid, args.server, args.port)
     
     loop = asyncio.get_event_loop()
-    # loop.run_until_complete(s.server)
     loop.run_forever()
 
     # loop.run_until_complete(c.connect())
