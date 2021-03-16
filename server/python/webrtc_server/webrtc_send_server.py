@@ -23,9 +23,9 @@ from gi.repository import GLib
 PIPELINE_DESC = '''
 webrtcbin name=sendrecv bundle-policy=max-bundle stun-server=stun://stun.l.google.com:19302
  videotestsrc is-live=true pattern=ball ! videoconvert ! queue ! vp8enc deadline=1 ! rtpvp8pay !
- queue ! application/x-rtp,media=video,encoding-name=VP8,payload=97 ! sendrecv.
+ queue ! application/x-rtp,media=video,encoding-name=VP8,payload=96 ! sendrecv.
  audiotestsrc is-live=true wave=red-noise ! audioconvert ! audioresample ! queue ! opusenc ! rtpopuspay !
- queue ! application/x-rtp,media=audio,encoding-name=OPUS,payload=96 ! sendrecv.
+ queue ! application/x-rtp,media=audio,encoding-name=OPUS,payload=111 ! sendrecv.
 '''
 
 
@@ -189,14 +189,13 @@ class WebRTCServer:
                     self.webrtc.emit('set-remote-description', offer, promise)
                     promise.interrupt()
 
-
-                    # direction_a = GstWebRTC.WebRTCRTPTransceiverDirection.SENDONLY
-                    # caps_a = Gst.caps_from_string("application/x-rtp,media=audio,encoding-name=OPUS,payload=111")
-                    # direction_v = GstWebRTC.WebRTCRTPTransceiverDirection.SENDONLY
-                    # caps_v = Gst.caps_from_string("application/x-rtp,media=video,encoding-name=VP8,payload=96")
+                    direction_a = GstWebRTC.WebRTCRTPTransceiverDirection.SENDONLY
+                    caps_a = Gst.caps_from_string("application/x-rtp,media=audio,encoding-name=OPUS,payload=111")
+                    direction_v = GstWebRTC.WebRTCRTPTransceiverDirection.SENDONLY
+                    caps_v = Gst.caps_from_string("application/x-rtp,media=video,encoding-name=VP8,payload=96")
                     
-                    # self.webrtc.emit('add-transceiver', direction_a, caps_a)
-                    # self.webrtc.emit('add-transceiver', direction_v, caps_v)
+                    self.webrtc.emit('add-transceiver', direction_a, caps_a)
+                    self.webrtc.emit('add-transceiver', direction_v, caps_v)
 
                     promise = Gst.Promise.new_with_change_func(self.on_answer_created, conn, None)
                     self.webrtc.emit('create-answer', None, promise)

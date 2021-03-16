@@ -71,7 +71,6 @@
             
             // Handles remote MediaStream success by adding it as the remoteVideo src.
             function gotRemoteMediaStream(event) {
-              console.log('gotRemoteMediaStream event:', event)
               const mediaStream = event.stream;
               remoteVideo.srcObject = mediaStream;
               remoteStream = mediaStream;
@@ -200,21 +199,21 @@
               trace(`Offer from localPeerConnection:\n${description.sdp}`);
             
               trace('localPeerConnection setLocalDescription start.');
-              localPeerConnection.setLocalDescription(description)
+              remotePeerConnection.setLocalDescription(description)
                 .then(() => {
-                  setLocalDescriptionSuccess(localPeerConnection);
+                  setLocalDescriptionSuccess(remotePeerConnection);
                 }).catch(setSessionDescriptionError);
             
-              trace('remotePeerConnection setRemoteDescription start.');
-              remotePeerConnection.setRemoteDescription(description)
-                .then(() => {
-                  setRemoteDescriptionSuccess(remotePeerConnection);
-                }).catch(setSessionDescriptionError);
+              // // trace('remotePeerConnection setRemoteDescription start.');
+              // // remotePeerConnection.setRemoteDescription(description)
+              // //   .then(() => {
+              // //     setRemoteDescriptionSuccess(remotePeerConnection);
+              // //   }).catch(setSessionDescriptionError);
             
-              trace('remotePeerConnection createAnswer start.');
-              remotePeerConnection.createAnswer()
-                .then(createdAnswer)
-                .catch(setSessionDescriptionError);
+              // trace('remotePeerConnection createAnswer start.');
+              // remotePeerConnection.createAnswer()
+              //   .then(createdAnswer)
+              //   .catch(setSessionDescriptionError);
             }
             
             // Logs answer to offer creation and sets peer connection session descriptions.
@@ -292,6 +291,9 @@
               remotePeerConnection = new RTCPeerConnection(config);
               trace('Created remote peer connection object remotePeerConnection.');
             
+              remotePeerConnection.addTransceiver('audio', {direction:'recvonly'})
+              remotePeerConnection.addTransceiver('video', {direction:'recvonly'})
+
               remotePeerConnection.addEventListener('icecandidate', remotehandleConnection);
               remotePeerConnection.addEventListener(
                 'iceconnectionstatechange', handleConnectionChange);
@@ -301,8 +303,10 @@
               localPeerConnection.addStream(localStream);
               trace('Added local stream to localPeerConnection.');
             
+
+
               trace('localPeerConnection createOffer start.');
-              localPeerConnection.createOffer()
+              remotePeerConnection.createOffer()
                 .then(createdOffer).catch(setSessionDescriptionError);
             }
             

@@ -58,9 +58,15 @@
             
             // Sets the MediaStream as the video element src.
             function gotLocalMediaStream(mediaStream) {
-              localVideo.srcObject = mediaStream;
-              localStream = mediaStream;
-              trace('Received local stream.');
+              console.log('gotLocalMediaStream mediaStream:', mediaStream)
+              track = mediaStream.getVideoTracks()[0];
+              // if (reallyAnswered) {
+              // sender.replaceTrack(track);
+              // }
+
+              // remoteVideo.srcObject = mediaStream;
+              // remoteStream = mediaStream;
+              // trace('Received local stream.');
               callButton.disabled = false;  // Enable call button.
             }
             
@@ -71,12 +77,13 @@
             
             // Handles remote MediaStream success by adding it as the remoteVideo src.
             function gotRemoteMediaStream(event) {
-              console.log('gotRemoteMediaStream event:', event)
-              const mediaStream = event.stream;
-              remoteVideo.srcObject = mediaStream;
-              remoteStream = mediaStream;
-              trace('Remote peer connection received remote stream.');
+              console.log('gotRemoteMediaStream')
+              // const mediaStream = event.stream;
+              // remoteVideo.srcObject = mediaStream;
+              // remoteStream = mediaStream;
             }
+
+ 
             
             
             // Add behavior for video streams.
@@ -101,8 +108,9 @@
             }
             
             localVideo.addEventListener('loadedmetadata', logVideoLoaded);
+            localVideo.addEventListener('onresize', logResizedVideo);
             remoteVideo.addEventListener('loadedmetadata', logVideoLoaded);
-            remoteVideo.addEventListener('onresize', logResizedVideo);
+            
             
             
             // Define RTC peer connection behavior.
@@ -114,7 +122,7 @@
             
               if (iceCandidate) {
                 let str = JSON.stringify(iceCandidate)
-                console.log('local newIceCandidate:', str)
+                console.log('[LOCAL] newIceCandidate:', str)
                 const newIceCandidate = new RTCIceCandidate(iceCandidate);
                 
                 const otherPeer = getOtherPeer(peerConnection);
@@ -136,7 +144,7 @@
             
               if (iceCandidate) {
                 let str = JSON.stringify(iceCandidate)
-                console.log('remote newIceCandidate:', str)
+                console.log('[REMOTE] newIceCandidate:', str)
                 const newIceCandidate = new RTCIceCandidate(iceCandidate);
                 
                 // console.log('newIceCandidate:', newIceCandidate)
@@ -196,22 +204,33 @@
             }
             
             // Logs offer creation and sets peer connection session descriptions.
-            function createdOffer(description) {
+            async function createdOffer(description) {
               trace(`Offer from localPeerConnection:\n${description.sdp}`);
             
-              trace('localPeerConnection setLocalDescription start.');
               localPeerConnection.setLocalDescription(description)
                 .then(() => {
                   setLocalDescriptionSuccess(localPeerConnection);
                 }).catch(setSessionDescriptionError);
+
+              
+
+              // // let audioTransceiver = remotePeerConnection.addTransceiver('audio', {direction:'sendonly'})
+              // // let videoTransceiver = remotePeerConnection.addTransceiver('video', {direction:'sendonly'})
+              
+
+              let stream = await navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
+              remoteVideo.srcObject = stream;
+              remoteStream = stream;
+              remotePeerConnection.addStream(remoteStream);
+              // console.log('stream:', stream)
+              // audioTransceiver.sender.replaceTrack(stream.getAudioTracks()[0]);
+              // videoTransceiver.sender.replaceTrack(stream.getVideoTracks()[0]);
             
-              trace('remotePeerConnection setRemoteDescription start.');
               remotePeerConnection.setRemoteDescription(description)
                 .then(() => {
                   setRemoteDescriptionSuccess(remotePeerConnection);
                 }).catch(setSessionDescriptionError);
             
-              trace('remotePeerConnection createAnswer start.');
               remotePeerConnection.createAnswer()
                 .then(createdAnswer)
                 .catch(setSessionDescriptionError);
@@ -221,13 +240,11 @@
             function createdAnswer(description) {
               trace(`Answer from remotePeerConnection:\n${description.sdp}.`);
               
-              trace('remotePeerConnection setLocalDescription start.');
               remotePeerConnection.setLocalDescription(description)
                 .then(() => {
                   setLocalDescriptionSuccess(remotePeerConnection);
                 }).catch(setSessionDescriptionError);
             
-              trace('localPeerConnection setRemoteDescription start.');
               localPeerConnection.setRemoteDescription(description)
                 .then(() => {
                   setRemoteDescriptionSuccess(localPeerConnection);
@@ -250,13 +267,11 @@
             // Handles start button action: creates local MediaStream.
             function startAction() {
               startButton.disabled = true;
-              navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
-                .then(gotLocalMediaStream).catch(handleLocalMediaStreamError);
-              trace('Requesting local stream.');
+              callButton.disabled = false;
             }
             
             // Handles call button action: creates peer connection.
-            function callAction() {
+            async function callAction() {
               callButton.disabled = true;
               hangupButton.disabled = false;
             
@@ -264,14 +279,14 @@
               startTime = window.performance.now();
             
               // Get local media stream tracks.
-              const videoTracks = localStream.getVideoTracks();
-              const audioTracks = localStream.getAudioTracks();
-              if (videoTracks.length > 0) {
-                trace(`Using video device: ${videoTracks[0].label}.`);
-              }
-              if (audioTracks.length > 0) {
-                trace(`Using audio device: ${audioTracks[0].label}.`);
-              }
+              // // const videoTracks = remoteStream.getVideoTracks();
+              // // const audioTracks = remoteStream.getAudioTracks();
+              // // if (videoTracks.length > 0) {
+              // //   trace(`Using video device: ${videoTracks[0].label}.`);
+              // // }
+              // // if (audioTracks.length > 0) {
+              // //   trace(`Using audio device: ${audioTracks[0].label}.`);
+              // // }
             
               const servers = null;  // Allows for RTC server configuration.
 
@@ -286,21 +301,32 @@
               trace('Created local peer connection object localPeerConnection.');
             
               localPeerConnection.addEventListener('icecandidate', localhandleConnection);
-              localPeerConnection.addEventListener(
-                'iceconnectionstatechange', handleConnectionChange);
+              localPeerConnection.addEventListener('iceconnectionstatechange', handleConnectionChange);
+              localPeerConnection.addEventListener('addstream', gotRemoteMediaStream);
             
               remotePeerConnection = new RTCPeerConnection(config);
               trace('Created remote peer connection object remotePeerConnection.');
             
               remotePeerConnection.addEventListener('icecandidate', remotehandleConnection);
-              remotePeerConnection.addEventListener(
-                'iceconnectionstatechange', handleConnectionChange);
+              remotePeerConnection.addEventListener('iceconnectionstatechange', handleConnectionChange);
               remotePeerConnection.addEventListener('addstream', gotRemoteMediaStream);
-            
+              
+
+              let audioTransceiver = localPeerConnection.addTransceiver('audio', {direction:'recvonly'})
+              let videoTransceiver = localPeerConnection.addTransceiver('video', {direction:'recvonly'})
+              
+              // let stream = await navigator.mediaDevices.getUserMedia(mediaStreamConstraints)
+              // console.log('stream:', stream)
+              // audioTransceiver.sender.replaceTrack(stream.getAudioTracks()[0]);
+              // videoTransceiver.sender.replaceTrack(stream.getVideoTracks()[0]);
+
+                // .then(gotLocalMediaStream).catch(handleLocalMediaStreamError);
+              trace('Requesting local stream.');
+
               // Add local stream to connection and create offer to connect.
-              localPeerConnection.addStream(localStream);
-              trace('Added local stream to localPeerConnection.');
-            
+              // remotePeerConnection.addStream(remoteStream);
+              // trace('Added local stream to localPeerConnection.');
+
               trace('localPeerConnection createOffer start.');
               localPeerConnection.createOffer()
                 .then(createdOffer).catch(setSessionDescriptionError);

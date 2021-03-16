@@ -5,7 +5,7 @@
     <body>
         <div>
             <video id="localVideo" playsinline autoplay muted></video>
-            <video id="remoteVideo" playsinline autoplay></video>
+            <video id="remoteVideo" playsinline autoplay muted></video>
         </div>
         <div>
             <button id="startGetUserMedia">startGetUserMedia</button>
@@ -17,11 +17,13 @@
         </div>
 
         <script type="text/javascript">
-            let localStream
-            let pc1
-            let offer
-            let answer
-            let ws
+            let localStream = null
+            let remoteStream = null
+            let pc1 = null
+            let offer = null
+            let answer = null
+            let ws = null
+            const localVideo = document.getElementById('localVideo');
             const remoteVideo = document.getElementById('remoteVideo');
 
             remoteVideo.addEventListener('loadedmetadata', function() {
@@ -34,10 +36,11 @@
             const startGetUserMedia = document.querySelector('button#startGetUserMedia')
             startGetUserMedia.addEventListener('click', async () => {
                 try{
-                    // console.log('[DEBUG] call getUserMedia -> get stream ');
-                    // const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
-                    // localVideo.srcObject = stream;
-                    // localStream = stream;
+                    console.log('[DEBUG] call getUserMedia -> get stream ');
+                    const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+                    localVideo.srcObject = stream;
+                    localStream = stream;
+                    // console.log('getUserMedia.. remoteStream:', remoteStream)
                 } catch(err){
                     console.log(`err:${err}`)
                 }
@@ -68,16 +71,19 @@
                         console.log(`pc1 failed to add ICE Candidate: ${e.toString()}`);
                     }
                 });
-                
 
+                let audioTransceiver = pc1.addTransceiver('audio', {direction:'recvonly'})
+                let videoTransceiver = pc1.addTransceiver('video', {direction:'recvonly'})
+
+                console.log('remoteStream:', remoteStream)
+
+                // pc1.addTrack(remoteStream.getTracks()[0])
+                
                 pc1.addEventListener('iceconnectionstatechange', (event) => {
                     console.log(`[TESTDEBUG]pc1 ICE state: ${pc1.iceConnectionState}`);
                     console.log('[TESTDEBUG]ICE state change event: ', event);
                 });
 
-                pc1.onaddstream = (event) => {
-                    console.log('[TESTDEBUG]onaddstream')
-                }
                 pc1.onremovestream = (event) => {
                     console.log('[TESTDEBUG]onremovestream')
                 }
@@ -87,8 +93,24 @@
                 pc1.onopen  = (event) => {
                     console.log('[TESTDEBUG]onopen ')
                 }
-                pc1.ontrack = (event) => {
-                    console.log('[TESTDEBUG]ontrack')
+                pc1.ontrack = (e) => {
+                    
+                    console.log('[TESTDEBUG]ontrack e:', e)
+                    if (e.streams && e.streams[0]) {
+                        const ret = document.getElementById('remoteVideo')
+                        console.log('[TESTDEBUG]ontrack remoteVideo:', document.getElementById('remoteVideo'))
+                        // const mediaStream = event.stream;
+                        // remoteVideo.srcObject = mediaStream;
+                        // remoteStream = mediaStream;
+                        ret.srcObject = e.streams[0];
+                    } else {
+                        if (true) {
+                            inboundStream = new MediaStream();
+                            remoteVideo.srcObject = inboundStream;
+                        }
+                        inboundStream.addTrack(e.track);
+                    }
+                    // document.getElementById("remoteVideo").srcObject = e.streams[0];
                 }
             })
 
@@ -96,12 +118,8 @@
             startCreateOffer.addEventListener('click', async () => {
                 try {
 
-                    console.log('pc1 createOffer start');
-                    const offerOptions = {
-                        offerToReceiveAudio: 1,
-                        offerToReceiveVideo: 1
-                    };
-                    offer = await pc1.createOffer(offerOptions);
+
+                    offer = await pc1.createOffer();
                     let ret = await pc1.setLocalDescription(offer);
                     request = {
                         sdp : {
@@ -109,7 +127,7 @@
                             sdp : pc1.localDescription.sdp
                         }
                     }
-                    console.log('[SEND -> Offer ... setLocalDescription', pc1.localDescription.sdp)
+                    console.log('[SEND] -> Offer ... setLocalDescription', pc1.localDescription.sdp)
                     ws.send(JSON.stringify(request))
 
                 } catch (e) {
@@ -149,7 +167,7 @@
                                 try{
                                     let candidate = res['ice']
                                     // console.log('[RECV] <- ice:' , JSON.stringify(candidate))
-                                    console.log('[RECV] <- ice:')
+                                    console.log('[RECV] <- ice:', JSON.stringify(candidate))
                                     await pc1.addIceCandidate(new RTCIceCandidate(candidate));
                                     
                                 } catch(e){
